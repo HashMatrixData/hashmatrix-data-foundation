@@ -1,8 +1,32 @@
 # hashmatrix-data-foundation
 
-> hashmatrix 数据中台子模块 · 所属：数据基础分系统
+> hashmatrix 数据中台子模块 · 所属：数据源接入 + 计算处理 + 存储（数据底座）
 >
 > 主仓：[HashMatrixData/hashmatrix](https://github.com/HashMatrixData/hashmatrix)
+
+## 角色与位置（一眼看懂）
+
+- **所属**：横跨**数据源接入层 / 计算处理层 / 存储层**——平台的数据底座。
+- **一句话**：把外部数据"接进来、算出来、存下去"——流批采集 + 湖仓一体 + 统一计算 + 向量/非结构化。
+- **数据流**：外部源 → **Connector SPI → 采集(Flink/SeaTunnel) → 湖仓(Paimon/Doris)** → 数据服务 API → 应用/BI/大屏。
+
+## 职责与边界
+
+- **做**：实时 CDC / 批量采集、入湖入仓、统一计算、向量/非结构化接入、**Connector SPI**（达梦/金仓/OceanBase 方言插件）。
+- **不做（边界）**：不写业务应用逻辑；治理（元数据/血缘）由 `governance` 旁路采集；BI 取数经数据服务/Doris。
+
+## 骨架技术选型（首选 · 待逐仓细化）
+
+| 维度 | 选型 |
+|--|--|
+| 流 / CDC | **Flink + Kafka + Flink-CDC** |
+| 批 | **SeaTunnel** / Spark |
+| 湖仓 | **Paimon**（湖）+ MinIO · **Doris**（仓 / OLAP） |
+| 向量 / 搜索 | Milvus · Elasticsearch |
+| 数据源接入 | **Connector SPI**（标准 JDBC/CDC + 方言插件：达梦/金仓/OceanBase） |
+| 运行时 | Java / Flink |
+
+> 信创刚需收敛于 Connector 插件：新增一种数据库 = 加一个插件 jar，不动主干（见架构 03/04）。
 
 ## 产品形态与多租户（北极星）
 
@@ -11,14 +35,6 @@
 **本仓视角**：采集 / 计算 / 湖仓按租户隔离 catalog/db，作业受租户配额约束。
 
 > 详见主仓 `docs/00-主仓初始化-spec.md`、`docs/architecture/05-多租户与控制平面.md`。
-
-## 职责
-
-流批采集、湖仓一体存储、统一计算、向量/非结构化接入、Connector SPI。
-
-## 技术栈
-
-Java/Flink（**具体技术选型待独立讨论，逐步丰富**）
 
 ## 说明
 
