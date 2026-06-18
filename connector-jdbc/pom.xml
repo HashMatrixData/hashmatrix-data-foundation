@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.hashmatrix.data</groupId>
+    <artifactId>data-foundation</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>connector-jdbc</artifactId>
+
+  <name>connector-jdbc</name>
+  <description>
+    标准 JDBC 连接器参考实现：内置 PostgreSQL / MySQL 方言；方言经独立 SPI（Dialect）+ ServiceLoader 扩展，
+    新增国产库（达梦/人大金仓/OceanBase）= 加一个方言插件 jar，本模块与主干零改动。
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.hashmatrix.data</groupId>
+      <artifactId>connector-spi</artifactId>
+    </dependency>
+
+    <!-- 参考实现内置的标准库驱动（JDBC4 自动注册；版本由平台 BOM 经 spring-boot-dependencies 钉死） -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+    </dependency>
+
+    <!-- 契约测试：复用 connector-spi 的 TCK（test-jar）+ H2 充当轻量参考数据源（无需 docker） -->
+    <dependency>
+      <groupId>io.hashmatrix.data</groupId>
+      <artifactId>connector-spi</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

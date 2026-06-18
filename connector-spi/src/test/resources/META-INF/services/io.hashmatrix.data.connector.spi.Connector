@@ -1,0 +1,2 @@
+# 测试用：经 ServiceLoader 注册进程内连接器，验证「加插件不动主干」的发现机制
+io.hashmatrix.data.connector.spi.testfixture.InMemoryConnector

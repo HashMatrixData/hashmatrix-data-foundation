@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.hashmatrix.data</groupId>
+    <artifactId>data-foundation</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>ingest</artifactId>
+
+  <name>ingest</name>
+  <description>
+    流批采集作业骨架：Flink（流，本地 mini-cluster 可跑）+ Flink-CDC / SeaTunnel（批）接入占位。
+    作业按租户隔离 catalog/database（复用 connector-spi 的 TenantCatalog）并受租户配额（QuotaGuard）约束。
+  </description>
+
+  <dependencies>
+    <!-- 复用 SPI 的 Record / TableRef / TenantCatalog（采集源/目标经 Connector SPI 统一接入） -->
+    <dependency>
+      <groupId>io.hashmatrix.data</groupId>
+      <artifactId>connector-spi</artifactId>
+    </dependency>
+
+    <!-- Flink 流处理 + 本地 mini-cluster 运行（flink-clients 提供本地执行环境） -->
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-streaming-java</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-clients</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!--
+        Flink 1.18 在 Java 17 下做本地 mini-cluster 执行需放开若干 JDK 模块封装（强反射）。
+        仅作用于测试 JVM；生产提交由 Flink 发行版的 flink-conf 注入同类参数。
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>
+            --add-opens=java.base/java.util=ALL-UNNAMED
+            --add-opens=java.base/java.lang=ALL-UNNAMED
+            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+            --add-opens=java.base/java.io=ALL-UNNAMED
+            --add-opens=java.base/java.net=ALL-UNNAMED
+            --add-opens=java.base/java.nio=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+          </argLine>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
