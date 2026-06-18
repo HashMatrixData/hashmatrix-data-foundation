@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: data-foundation
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true   # /actuator/health/liveness | /readiness（容器探针）
+
+hashmatrix:
+  tenant:
+    # 信任边缘网关已强制注入并校验租户头（icd/tenant-context-headers §4）；服务侧默认不强制。
+    # 前提：服务仅在网关之后可达（NetworkPolicy）。
+    required: false

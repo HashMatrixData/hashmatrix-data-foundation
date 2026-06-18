@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+# 解析平台 parent/BOM（GitHub Packages, io.hashmatrix:*）需 packages:read。
+# 同组织跨仓库制品若 GITHUB_TOKEN 不足以拉取，配置带 read:packages 的仓库 Secret PACKAGES_READ_TOKEN 兜底。
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    name: 多模块构建 + 测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: mvn verify (reactor)
+        env:
+          GH_PACKAGES_USER: ${{ github.actor }}
+          GH_PACKAGES_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN || secrets.GITHUB_TOKEN }}
+        run: mvn -B -ntp -s ci/settings.xml verify
+
+  image:
+    name: 构建镜像
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker build
+        env:
+          GH_PACKAGES_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          docker build \
+            --build-arg GH_PACKAGES_USER="${{ github.actor }}" \
+            --build-arg GH_PACKAGES_TOKEN="${GH_PACKAGES_TOKEN}" \
+            -t data-foundation:ci .

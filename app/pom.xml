@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.hashmatrix.data</groupId>
+    <artifactId>data-foundation</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>app</artifactId>
+
+  <name>app</name>
+  <description>
+    数据底座服务骨架：装配 Connector SPI 注册表、暴露连接器/方言清单与健康探针。
+    经 Maven 坐标引用平台公共能力（starter-web / starter-tenant）；只 clone 本仓即可 mvn package 成可运行 jar。
+  </description>
+
+  <dependencies>
+    <!-- 平台公共能力（Maven 坐标引用，BOM 钉版本） -->
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-tenant</artifactId>
+    </dependency>
+
+    <!-- 运行容器与健康探针（starter-web 仅含 autoconfigure，需自带 web/actuator 运行时） -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- 数据底座能力：SPI 注册表 + JDBC 参考实现；方言插件运行期装配（印证加 jar 即接入） -->
+    <dependency>
+      <groupId>io.hashmatrix.data</groupId>
+      <artifactId>connector-spi</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.hashmatrix.data</groupId>
+      <artifactId>connector-jdbc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.hashmatrix.data</groupId>
+      <artifactId>connector-dialect-dm</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.hashmatrix.data</groupId>
+      <artifactId>connector-dialect-kingbase</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.hashmatrix.data</groupId>
+      <artifactId>connector-dialect-oceanbase</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- 测试栈 -->
+    <dependency>
+      <groupId>io.hashmatrix</groupId>
+      <artifactId>hashmatrix-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- 打成可运行 fat jar：mvn package -> java -jar 直接起服务 -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

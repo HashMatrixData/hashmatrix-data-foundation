@@ -38,8 +38,40 @@
 
 > 全局定义见主仓 `docs/00-主仓初始化-spec.md` 与 `docs/architecture/05-多租户与控制平面.md`。
 
+## 🔗 契约（Contracts）—— 跨子系统集成
+
+本项目经**契约**与其它子系统集成。契约的**单一事实源在主仓** `HashMatrixData/hashmatrix` 的 `contracts/`：
+- 索引（机器可读）`contracts/registry.yaml` · 规范 `contracts/CONVENTIONS.md` · 设计 `docs/architecture/06-契约治理.md`
+- 在线：https://github.com/HashMatrixData/hashmatrix/tree/main/contracts
+
+**铁律**：先改契约、再改实现；加法兼容默认放行，破坏性走 MAJOR + 弃用期双跑 + 通知消费方；消费方一律 tolerant reader。
+
+**本仓契约**：
+- producer：暂无
+- consumer：`icd/tenant-context-headers`、`icd/governance-metadata`
+
+**如何查阅（随时拉最新，勿存本地副本）**：
+- 在 superproject（`hashmatrix/services/<本仓>`）下：直接读 `../../contracts/`。
+- 独立 clone：WebFetch `https://raw.githubusercontent.com/HashMatrixData/hashmatrix/main/contracts/registry.yaml`（公开仓免鉴权）→ 按 registry 取对应契约；或 `gh api repos/HashMatrixData/hashmatrix/contents/contracts/<path> -H "Accept: application/vnd.github.raw"`。
+
 ## 仓库定位
 
 数据基础分系统：流批采集、湖仓一体存储、统一计算、向量/非结构化接入、Connector SPI。
 
-技术栈与具体选型**待独立讨论后逐步丰富**，当前为初始脚手架。
+### 工程脚手架（已落地·核心纵切）
+
+Maven 多模块（`<parent>` = 平台 `hashmatrix-platform-parent`，import `hashmatrix-bom`，**坐标引用、不依赖 submodule 路径**）：
+
+| 模块 | 职责 |
+|--|--|
+| `connector-spi` | 连接器 SPI 主干（纯 Java）：连接 / 元数据扫描（旁路·取结构）/ 读写（主链路·搬行）；ServiceLoader 注册表 + per-tenant `TenantCatalog` + 契约 TCK（test-jar） |
+| `connector-jdbc` | 标准 JDBC 参考实现（PG/MySQL）+ `Dialect` SPI；H2 契约测试；**schema-per-tenant** |
+| `connector-dialect-{dm,kingbase,oceanbase}` | 国产库方言插件**占位**（实现 `Dialect` + `META-INF/services`）——**新增库 = 加一个 jar，主干零改动** |
+| `ingest` | Flink 流采集骨架（本地 mini-cluster 可跑）+ 租户配额护栏；Flink-CDC / SeaTunnel 接入占位 |
+| `app` | Spring Boot 服务骨架：装配 SPI 注册表、连接器/方言清单 + 健康探针；`mvn package` 出可运行 jar |
+
+**边界（AD-15）**：数据采集（本仓·主链路·搬行）≠ 元数据采集（`governance`·旁路·取结构）——二者**共用同一套 Connector SPI**，连接器只实现一次。
+
+**构建/运行红线**：凭据经 `DataSourceConfig.secretRef` → 环境变量/Secret 在运行期解析，**禁止硬编码**；制品仓鉴权（`read:packages`）经环境变量注入 `ci/settings.xml`，**密钥不入库**。
+
+技术栈与具体选型**待独立讨论后逐步丰富**，湖仓 per-tenant catalog（Doris/Paimon）、Helm 子 chart 汇入主仓、CDC/SeaTunnel 实链路为后续轮次。

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Maven settings：让「只 clone 本仓」也能从 GitHub Packages 解析平台 parent/BOM（io.hashmatrix:*）。
+  本文件不含任何密钥——凭据经环境变量在运行期注入（CI Secret / 本地 export），符合红线（凭据不入库）。
+
+  本地用法：
+    export GH_PACKAGES_USER=<你的 GitHub 用户名>
+    export GH_PACKAGES_TOKEN=<带 read:packages 的 PAT>
+    mvn -s ci/settings.xml -DskipTests package
+
+  说明：<parent> 在 POM 的 <repositories> 之前解析，故制品仓必须在 settings 里声明（不能只写在 POM）。
+  内网/信创交付改用私服镜像：把下方 url 换成内网 Nexus/Artifactory，或用平台 parent 的 -Pxinchuang。
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+  <servers>
+    <server>
+      <id>github</id>
+      <username>${env.GH_PACKAGES_USER}</username>
+      <password>${env.GH_PACKAGES_TOKEN}</password>
+    </server>
+  </servers>
+
+  <profiles>
+    <profile>
+      <id>github-packages</id>
+      <repositories>
+        <!-- 平台制品仓（公共 parent/BOM/starter-*）。Maven Central 仍为默认，不被覆盖。 -->
+        <repository>
+          <id>github</id>
+          <url>https://maven.pkg.github.com/HashMatrixData/hashmatrix</url>
+          <releases><enabled>true</enabled></releases>
+          <snapshots><enabled>true</enabled></snapshots>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
+
+  <activeProfiles>
+    <activeProfile>github-packages</activeProfile>
+  </activeProfiles>
+</settings>

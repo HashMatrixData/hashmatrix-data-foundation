@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.hashmatrix.data</groupId>
+    <artifactId>data-foundation</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>connector-dialect-kingbase</artifactId>
+
+  <name>connector-dialect-kingbase</name>
+  <description>
+    人大金仓（KingbaseES, jdbc:kingbase8:）方言插件占位。实现 connector-jdbc 的 Dialect SPI 并经 ServiceLoader 注册——
+    印证「新增数据库 = 加一个插件 jar，connector-jdbc 与采集主干零改动」。
+    真实 JDBC 驱动与方言细节（分页/类型映射/标识符规则）待该库选型确认后在本模块补全（信创交付期）。
+  </description>
+
+  <dependencies>
+    <!-- 仅依赖 connector-jdbc 提供的 Dialect 契约；驱动在交付期按库引入，占位阶段不绑定 -->
+    <dependency>
+      <groupId>io.hashmatrix.data</groupId>
+      <artifactId>connector-jdbc</artifactId>
+    </dependency>
+  </dependencies>
+</project>

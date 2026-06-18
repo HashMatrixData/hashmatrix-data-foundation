@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    平台公共 parent（制品仓解析，不依赖 submodule 路径）。relativePath 留空 = 只 clone 本子仓即可构建，
+    前提是能访问制品仓（GitHub Packages，需 read:packages；内网/信创走 -Pxinchuang 私服镜像）。
+    版本演进 = 改下方 import BOM 一行版本号（全平台同版本）。
+  -->
+  <parent>
+    <groupId>io.hashmatrix</groupId>
+    <artifactId>hashmatrix-platform-parent</artifactId>
+    <version>0.2.0</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>io.hashmatrix.data</groupId>
+  <artifactId>data-foundation</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>data-foundation</name>
+  <description>
+    数据底座分系统：流批采集 + 湖仓一体 + 统一计算 + Connector SPI。
+    Connector SPI「加插件不动主干」：新增数据库 = 加一个方言插件 jar，主干零改动。
+  </description>
+
+  <modules>
+    <module>connector-spi</module>
+    <module>connector-jdbc</module>
+    <module>connector-dialect-dm</module>
+    <module>connector-dialect-kingbase</module>
+    <module>connector-dialect-oceanbase</module>
+    <module>ingest</module>
+    <module>app</module>
+  </modules>
+
+  <properties>
+    <!--
+      采集/计算引擎版本（不在平台 BOM 内，属本分系统选型，集中钉死在此）。
+      Flink 1.18 覆盖 Java 17；Flink-CDC / SeaTunnel 走独立发版节奏，版本与 Flink 分离。
+    -->
+    <flink.version>1.18.1</flink.version>
+    <flink-connector-jdbc.version>3.1.2-1.18</flink-connector-jdbc.version>
+    <flink-cdc.version>3.0.1</flink-cdc.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- 平台依赖 BOM：开发框架版本唯一来源（Spring Boot 家族 + 测试栈 + 公共 starter） -->
+      <dependency>
+        <groupId>io.hashmatrix</groupId>
+        <artifactId>hashmatrix-bom</artifactId>
+        <version>0.2.0</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- 本分系统内部模块：版本随 reactor 统一递增，子模块引用免写版本 -->
+      <dependency>
+        <groupId>io.hashmatrix.data</groupId>
+        <artifactId>connector-spi</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.hashmatrix.data</groupId>
+        <artifactId>connector-spi</artifactId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+      </dependency>
+      <dependency>
+        <groupId>io.hashmatrix.data</groupId>
+        <artifactId>connector-jdbc</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.hashmatrix.data</groupId>
+        <artifactId>connector-dialect-dm</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.hashmatrix.data</groupId>
+        <artifactId>connector-dialect-kingbase</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.hashmatrix.data</groupId>
+        <artifactId>connector-dialect-oceanbase</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.hashmatrix.data</groupId>
+        <artifactId>ingest</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <!-- 采集引擎：Flink 核心 + 本地 mini-cluster 运行（flink-clients）+ JDBC sink -->
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-streaming-java</artifactId>
+        <version>${flink.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-clients</artifactId>
+        <version>${flink.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-connector-base</artifactId>
+        <version>${flink.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-connector-jdbc</artifactId>
+        <version>${flink-connector-jdbc.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-test-utils</artifactId>
+        <version>${flink.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <!-- 钉死 exec 插件版本：README 示范用 `mvn exec:java` 本地跑 Flink 样例，保证可复现/可离线 -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>3.1.1</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>

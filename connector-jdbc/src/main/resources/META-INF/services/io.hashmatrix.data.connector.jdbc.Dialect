@@ -1,0 +1,3 @@
+# 内置方言（标准库参考实现）。国产库方言由 connector-dialect-* 插件 jar 各自注册。
+io.hashmatrix.data.connector.jdbc.PostgresDialect
+io.hashmatrix.data.connector.jdbc.MySqlDialect
