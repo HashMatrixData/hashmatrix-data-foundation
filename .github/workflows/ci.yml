@@ -5,7 +5,8 @@ on:
     branches: [ main ]
   pull_request:
 
-# 解析平台 parent/BOM（GitHub Packages, io.hashmatrix:*）需 packages:read。
+# 解析平台 parent/BOM（GitHub Packages, io.hashmatrix:*）需 packages:read（顶层默认，build job 用）。
+# 发布镜像到 ghcr 需 packages:write —— 仅 image job 在 job 级提权（job 级 permissions 覆盖顶层，遵最小权限）。
 # 同组织跨仓库制品若 GITHUB_TOKEN 不足以拉取，配置带 read:packages 的仓库 Secret PACKAGES_READ_TOKEN 兜底。
 permissions:
   contents: read
@@ -15,6 +16,8 @@ jobs:
   build:
     name: 多模块构建 + 测试
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}   # 项目版本 → image job 打镜像 tag
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -27,18 +30,66 @@ jobs:
           GH_PACKAGES_USER: ${{ github.actor }}
           GH_PACKAGES_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN || secrets.GITHUB_TOKEN }}
         run: mvn -B -ntp -s ci/settings.xml verify
-
-  image:
-    name: 构建镜像
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: docker build
+      # 在此解析版本（而非 image job）以复用已就绪的 JDK/Maven 缓存/凭据，免去二次解析 parent。
+      - name: 解析项目版本（供镜像 tag）
+        id: version
         env:
+          GH_PACKAGES_USER: ${{ github.actor }}
           GH_PACKAGES_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
+          # -DforceStdout 把值写 stdout；为防冷缓存下混入下载/告警行污染 tag，只取末行并校验非空。
+          V=$(mvn -B -ntp -q -s ci/settings.xml help:evaluate -Dexpression=project.version -DforceStdout | tail -n1)
+          if [ -z "$V" ]; then echo "::error::无法解析 project.version"; exit 1; fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "项目版本：$V"
+
+  image:
+    name: 构建并发布镜像（ghcr）
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write          # 仅本 job 提权写 ghcr（write 含 read，docker build 拉 parent 复用）
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # tag 方案：:<项目版本> 为随 main 移动的 SNAPSHOT 别名；:<short-sha> 为不可变、可追溯到具体提交的发布 tag。
+      - name: 计算镜像名与 tag
+        id: meta
+        run: |
+          if [ -z "$VERSION" ]; then echo "::error::上游 build job 未传出 project.version"; exit 1; fi
+          OWNER=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')   # ghcr 要求 owner 全小写
+          echo "image=ghcr.io/${OWNER}/data-foundation" >> "$GITHUB_OUTPUT"
+          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "镜像：ghcr.io/${OWNER}/data-foundation · 版本：${VERSION} · sha：${GITHUB_SHA::7}"
+
+      # 仅 push 到 main 时登录并发布；PR 只 build 验证 Dockerfile，不写 registry（避免污染）。
+      - name: 登录 ghcr
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 构建镜像（tag = 项目版本 + short-sha）
+        env:
+          DOCKER_BUILDKIT: "1"   # --secret 需 BuildKit；显式兜底，不依赖 runner 默认
+          GH_PACKAGES_USER: ${{ github.actor }}
+          GH_PACKAGES_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # token 经 BuildKit secret 注入（不落入构建层历史）；用户名非密走 build-arg。
           docker build \
-            --build-arg GH_PACKAGES_USER="${{ github.actor }}" \
-            --build-arg GH_PACKAGES_TOKEN="${GH_PACKAGES_TOKEN}" \
-            -t data-foundation:ci .
+            --build-arg GH_PACKAGES_USER="${GH_PACKAGES_USER}" \
+            --secret id=gh_token,env=GH_PACKAGES_TOKEN \
+            -t "${{ steps.meta.outputs.image }}:${VERSION}" \
+            -t "${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}" \
+            .
+
+      - name: 推送镜像（仅 main · PR 跳过）
+        if: github.event_name == 'push'
+        run: |
+          docker push "${{ steps.meta.outputs.image }}:${VERSION}"
+          docker push "${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}"

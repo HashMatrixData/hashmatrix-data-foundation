@@ -2,16 +2,18 @@
 # 多阶段构建：只 clone 本仓即可产出可运行镜像（构建期从 GitHub Packages 解析平台 parent/BOM）。
 
 # ---- build ----
-# 注：构建期 token 经 build-arg 传入，仅留在 build 阶段（最终 runtime 镜像不含）。加固项（后续）：
-# 改用 BuildKit secret（RUN --mount=type=secret,id=gh_token ...），避免 token 进入构建层历史。
+# 凭据策略：用户名非密（公开 GitHub 账号）走 build-arg；token 走 BuildKit secret（--mount=type=secret），
+# 仅在该 RUN 内存可见、绝不写入任何构建层历史 —— 故 build 阶段中间镜像即便被缓存/外泄也不含 token。
 FROM maven:3.9-eclipse-temurin-17 AS build
 ARG GH_PACKAGES_USER
-ARG GH_PACKAGES_TOKEN
 WORKDIR /workspace
 COPY . .
 # 仅打 app 及其依赖模块（-am）；测试在 CI 单独跑，镜像构建跳过以加速。
+# token 从 /run/secrets/gh_token 读入环境变量，供 ci/settings.xml（${env.GH_PACKAGES_TOKEN}）解析制品仓。
 RUN --mount=type=cache,target=/root/.m2 \
-    GH_PACKAGES_USER="${GH_PACKAGES_USER}" GH_PACKAGES_TOKEN="${GH_PACKAGES_TOKEN}" \
+    --mount=type=secret,id=gh_token,required=true \
+    GH_PACKAGES_USER="${GH_PACKAGES_USER}" \
+    GH_PACKAGES_TOKEN="$(cat /run/secrets/gh_token)" \
     mvn -B -ntp -s ci/settings.xml -pl app -am -DskipTests package
 
 # ---- runtime ----

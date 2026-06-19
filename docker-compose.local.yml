@@ -40,7 +40,8 @@ services:
       context: .
       args:
         GH_PACKAGES_USER: ${GH_PACKAGES_USER:-}
-        GH_PACKAGES_TOKEN: ${GH_PACKAGES_TOKEN:-}
+      secrets:
+        - gh_token   # token 经 BuildKit secret 注入（不进构建层历史），值取自宿主 env GH_PACKAGES_TOKEN
     ports:
       - "8084:8084"   # 应用 HTTP（业务 API）
       - "9084:9084"   # 管理口（actuator 探针 / 外部探活）
@@ -68,3 +69,8 @@ services:
   #     KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
   #     KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
   #   ports: ["9092:9092"]
+
+# 制品仓 token 作为 BuildKit 构建密钥：值取自宿主环境变量，不写入镜像层、不入库（红线）。
+secrets:
+  gh_token:
+    environment: GH_PACKAGES_TOKEN
