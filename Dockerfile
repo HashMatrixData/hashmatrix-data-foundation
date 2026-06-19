@@ -23,8 +23,8 @@ RUN apt-get update \
 WORKDIR /app
 COPY --from=build /workspace/app/target/app-*.jar /app/app.jar
 USER 1001
-EXPOSE 8080
-# 健康检查命中 actuator 探针（status=UP 才算健康）
+EXPOSE 8084 9084
+# 健康检查命中 actuator 探针（管理口 9084；status=UP 才算健康）
 HEALTHCHECK --interval=15s --timeout=3s --start-period=40s --retries=5 \
-  CMD curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"' || exit 1
+  CMD curl -fsS http://localhost:9084/actuator/health | grep -q '"status":"UP"' || exit 1
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

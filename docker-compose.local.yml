@@ -4,7 +4,7 @@
 # 用法：
 #   export GH_PACKAGES_USER=<github 用户名>   GH_PACKAGES_TOKEN=<带 read:packages 的 PAT>
 #   docker compose -f docker-compose.local.yml up --build
-# 健康检查全绿后：curl http://localhost:8080/actuator/health
+# 健康检查全绿后：curl http://localhost:9084/actuator/health（actuator 在管理口 9084；业务 API 在 8084）
 services:
   postgres:
     image: postgres:16
@@ -42,14 +42,15 @@ services:
         GH_PACKAGES_USER: ${GH_PACKAGES_USER:-}
         GH_PACKAGES_TOKEN: ${GH_PACKAGES_TOKEN:-}
     ports:
-      - "8080:8080"
+      - "8084:8084"   # 应用 HTTP（业务 API）
+      - "9084:9084"   # 管理口（actuator 探针 / 外部探活）
     depends_on:
       postgres:
         condition: service_healthy
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9084/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 15s
       timeout: 3s
       retries: 5

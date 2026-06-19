@@ -80,8 +80,8 @@ mvn -s ci/settings.xml package          # 多模块构建 + 测试（含 connect
 
 ```bash
 docker compose -f docker-compose.local.yml up --build      # PG + MinIO + app
-curl -s http://localhost:8080/actuator/health              # 期望 {"status":"UP"}
-curl -s http://localhost:8080/api/connectors               # 已注册连接器(jdbc) + 方言(pg/mysql/dm/kingbase/oceanbase/ansi)
+curl -s http://localhost:9084/actuator/health              # 管理口 9084 · 期望 {"status":"UP"}
+curl -s http://localhost:8084/api/connectors               # 应用口 8084 · 已注册连接器(jdbc) + 方言(postgresql/mysql/dm/kingbase/oceanbase/ansi)
 ```
 
 Flink 流采集样例（本地 mini-cluster，无需集群）：
