@@ -2,6 +2,7 @@ package io.hashmatrix.data.connector.jdbc;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.ServiceLoader;
 
 /**
@@ -32,6 +33,18 @@ public final class DialectRegistry {
     /** 按 URL 选取方言；无命中回退 ANSI 兜底方言。 */
     public Dialect forUrl(String jdbcUrl) {
         return dialects.stream().filter(d -> d.matches(jdbcUrl)).findFirst().orElse(fallback);
+    }
+
+    /**
+     * 按数据源类型键（= 方言 {@link Dialect#name()}，如 {@code "mysql"}）选取专用方言。
+     * 用于「由 type 拼 URL」的入口（D8）：未知类型返回 {@link Optional#empty()}，<b>不</b>回退兜底——
+     * 调用方据此对未支持类型给出明确错误，而非用 ANSI 方言拼出不可用的 URL。
+     */
+    public Optional<Dialect> forType(String type) {
+        if (type == null || type.isBlank()) {
+            return Optional.empty();
+        }
+        return dialects.stream().filter(d -> d.name().equalsIgnoreCase(type.trim())).findFirst();
     }
 
     /** 已发现的方言名（含兜底）。 */

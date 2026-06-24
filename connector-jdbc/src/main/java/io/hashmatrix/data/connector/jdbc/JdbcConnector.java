@@ -15,8 +15,9 @@ import java.util.Properties;
  *
  * <p>方言差异下沉到 {@link Dialect} SPI；本连接器与采集主干不感知具体数据库。
  *
- * <p><b>凭据红线</b>：口令不来自配置明文，而是经 {@link DataSourceConfig#secretRef()} 指向的
- * 环境变量在运行期解析（{@link #resolvePassword}）；源码/配置/提交历史一律不含口令。
+ * <p><b>凭据红线</b>：口令不来自配置明文，而是经 {@link DataSourceConfig#secretRef()} 指向的逻辑引用，
+ * 由 {@link SecretResolver} 在运行期解析（默认指向环境变量）；源码/配置/提交历史一律不含口令。
+ * 应用层可注入自定义解析器（如解密 PG 密文、测试连接的临时口令），明文不入配置/库/日志（D7）。
  */
 public final class JdbcConnector implements Connector {
 
@@ -24,6 +25,20 @@ public final class JdbcConnector implements Connector {
     public static final String TYPE = "jdbc";
 
     private final DialectRegistry dialects = DialectRegistry.load();
+    private final SecretResolver secretResolver;
+
+    /** 默认构造（{@code ServiceLoader} 约束的无参构造）：口令从环境变量解析。 */
+    public JdbcConnector() {
+        this(SecretResolver.FROM_ENV);
+    }
+
+    /**
+     * 注入自定义口令解析器。用于应用层持有运行期口令（解密密文 / 测试连接的临时口令）的场景——
+     * 明文经解析器即用即弃，不写入 {@link DataSourceConfig}（D7）。
+     */
+    public JdbcConnector(SecretResolver secretResolver) {
+        this.secretResolver = secretResolver == null ? SecretResolver.FROM_ENV : secretResolver;
+    }
 
     @Override
     public String type() {
@@ -59,10 +74,10 @@ public final class JdbcConnector implements Connector {
     }
 
     /**
-     * 从 {@code secretRef} 指向的环境变量解析口令（非明文落地）。无 {@code secretRef} 返回
-     * {@code null}（如 H2 等无鉴权测试源）。生产可替换为 Vault/K8s Secret 解析器。
+     * 经注入的 {@link SecretResolver} 把 {@code secretRef} 解析为明文口令（非明文落地）。
+     * 无 {@code secretRef} 返回 {@code null}（如 H2 等无鉴权测试源）。
      */
     private String resolvePassword(DataSourceConfig config) {
-        return config.secretRef().map(System::getenv).orElse(null);
+        return config.secretRef().map(secretResolver::resolve).orElse(null);
     }
 }
