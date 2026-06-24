@@ -41,4 +41,26 @@ public abstract class AbstractPostgresTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("hashmatrix.datasource.crypto.secret-key", () -> TEST_SECRET_KEY_BASE64);
     }
+
+    // —— 供「连接被连接数据源」类测试复用本 PG 容器（把它当成一个 postgresql 型被连接源）——
+
+    protected static String pgHost() {
+        return POSTGRES.getHost().replace("localhost", "127.0.0.1");
+    }
+
+    protected static int pgPort() {
+        return POSTGRES.getFirstMappedPort();
+    }
+
+    protected static String pgDatabase() {
+        return POSTGRES.getDatabaseName();
+    }
+
+    protected static String pgUsername() {
+        return POSTGRES.getUsername();
+    }
+
+    protected static String pgPassword() {
+        return POSTGRES.getPassword();
+    }
 }

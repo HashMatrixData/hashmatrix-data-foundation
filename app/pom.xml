@@ -53,6 +53,15 @@
       <artifactId>postgresql</artifactId>
       <scope>runtime</scope>
     </dependency>
+    <!--
+      被连接数据源的 JDBC 驱动（运行期）。MySQL 是 D8「第一个」方言的真实驱动——
+      连接器中立：新增方言时在此加该库驱动 + 方言插件，端点/模型零改。版本由 BOM 钉死。
+    -->
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <scope>runtime</scope>
+    </dependency>
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>
