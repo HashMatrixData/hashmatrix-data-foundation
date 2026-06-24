@@ -7,9 +7,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-/** 上下文装配冒烟：starter-web / starter-tenant 自动配置 + 注册表 Bean 正常加载。 */
+/** 上下文装配冒烟：starter-web / starter-tenant + JPA/Flyway/CryptoService 自动配置 + 注册表 Bean 正常加载。 */
 @SpringBootTest
-class DataFoundationApplicationTests {
+class DataFoundationApplicationTests extends AbstractPostgresTest {
 
     @Autowired
     private ConnectorRegistry connectorRegistry;

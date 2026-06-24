@@ -42,6 +42,11 @@ services:
         GH_PACKAGES_USER: ${GH_PACKAGES_USER:-}
       secrets:
         - gh_token   # token 经 BuildKit secret 注入（不进构建层历史），值取自宿主 env GH_PACKAGES_TOKEN
+    environment:
+      # D7 数据源加密主密钥（Base64 32 字节）：此处为**本机临时容器脱敏占位**，仅本地使用，
+      # 禁用于任何真实环境（红线：示例脱敏）。真实部署经 K8s Secret 注入（主仓 deploy / #50 WP3）。
+      # 优先取宿主 env DS_SECRET_KEY，未设则用本地占位（= base64("0123456789ABCDEF0123456789ABCDEF")）。
+      DS_SECRET_KEY: ${DS_SECRET_KEY:-MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=}
     ports:
       - "8084:8084"   # 应用 HTTP（业务 API）
       - "9084:9084"   # 管理口（actuator 探针 / 外部探活）

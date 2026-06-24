@@ -25,7 +25,7 @@ import org.springframework.http.ResponseEntity;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "management.server.port=0")
-class EntryPointHttpTest {
+class EntryPointHttpTest extends AbstractPostgresTest {
 
     @LocalServerPort
     private int appPort;
