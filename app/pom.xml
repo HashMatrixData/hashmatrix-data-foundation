@@ -40,6 +40,29 @@
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
 
+    <!--
+      数据源持久层（WP1 · 落 D7）：JPA 落 PG（独立 database）+ Flyway 管 schema 演进。
+      版本均由 hashmatrix-bom 钉死，子仓不写版本号（与 control-plane 同姿势）。
+    -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
     <!-- 数据底座能力：SPI 注册表 + JDBC 参考实现；方言插件运行期装配（印证加 jar 即接入） -->
     <dependency>
       <groupId>io.hashmatrix.data</groupId>
@@ -74,6 +97,17 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- 持久层集成测试：用真 PostgreSQL 容器跑 Flyway/JPA（PG 专属 SQL，不退化 H2）。 -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
