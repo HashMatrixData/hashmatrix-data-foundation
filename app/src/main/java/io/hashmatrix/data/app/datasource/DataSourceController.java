@@ -1,8 +1,12 @@
 package io.hashmatrix.data.app.datasource;
 
 import io.hashmatrix.data.app.datasource.DataSourceConnectionService.TestResult;
+import io.hashmatrix.starter.tenant.TenantContextHolder;
 import io.hashmatrix.starter.web.ApiResponse;
 import io.hashmatrix.starter.web.BusinessException;
+import java.time.Instant;
+import java.util.List;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,10 +27,15 @@ public class DataSourceController {
     private static final int PORT_MIN = 1;
     private static final int PORT_MAX = 65535;
 
-    private final DataSourceConnectionService connectionService;
+    private static final String TENANT_REQUIRED = "TENANT_REQUIRED";
 
-    public DataSourceController(DataSourceConnectionService connectionService) {
+    private final DataSourceConnectionService connectionService;
+    private final DataSourceService dataSourceService;
+
+    public DataSourceController(
+            DataSourceConnectionService connectionService, DataSourceService dataSourceService) {
         this.connectionService = connectionService;
+        this.dataSourceService = dataSourceService;
     }
 
     /**
@@ -48,6 +57,76 @@ public class DataSourceController {
         return ApiResponse.ok(new TestConnectionResponse(result.ok(), result.message()));
     }
 
+    /**
+     * 登记数据源（口令加密落库，D7）。强制本租户（D9）。同租户重名 → 409。
+     *
+     * @throws BusinessException 缺租户上下文（400）/ 请求体非法（400）/ 名称冲突（409）
+     */
+    @PostMapping
+    public ApiResponse<DataSourceView> create(@RequestBody CreateDataSourceRequest request) {
+        String tenantId = currentTenant();
+        validate(request);
+        DataSourceEntity saved =
+                dataSourceService.create(
+                        tenantId,
+                        request.name().trim(),
+                        request.type().trim(),
+                        request.host().trim(),
+                        request.port(),
+                        request.database().trim(),
+                        request.username().trim(),
+                        request.password());
+        return ApiResponse.ok(toView(saved));
+    }
+
+    /**
+     * 列出<b>本租户</b>的数据源（D9）。响应<b>不含任何口令字段</b>。
+     *
+     * @throws BusinessException 缺租户上下文（400）
+     */
+    @GetMapping
+    public ApiResponse<List<DataSourceView>> list() {
+        String tenantId = currentTenant();
+        List<DataSourceView> views =
+                dataSourceService.list(tenantId).stream().map(DataSourceController::toView).toList();
+        return ApiResponse.ok(views);
+    }
+
+    /** 强制取当前租户（D9）：缺 {@code X-Tenant-Id} → 明确 400，而非静默放行或 500。 */
+    private static String currentTenant() {
+        return TenantContextHolder.getTenantId()
+                .filter(t -> !t.isBlank())
+                .orElseThrow(
+                        () -> new BusinessException(TENANT_REQUIRED, "缺少租户上下文（X-Tenant-Id）"));
+    }
+
+    /** 实体 → 视图：刻意<b>不</b>暴露 {@code secret_cipher}/{@code secret_ref} 等任何凭据字段（D7）。 */
+    private static DataSourceView toView(DataSourceEntity e) {
+        return new DataSourceView(
+                e.getId().toString(),
+                e.getName(),
+                e.getType(),
+                e.getHost(),
+                e.getPort(),
+                e.getDatabaseName(),
+                e.getUsername(),
+                e.getCreatedAt());
+    }
+
+    private static void validate(CreateDataSourceRequest req) {
+        if (req == null) {
+            throw new BusinessException(VALIDATION_ERROR, "请求体不能为空");
+        }
+        requireText(req.name(), "name");
+        requireText(req.type(), "type");
+        requireText(req.host(), "host");
+        requireText(req.database(), "database");
+        requireText(req.username(), "username");
+        // 保存的数据源须带口令（加密落库）；测试连接可无口令，但持久化登记要求显式提供。
+        requireText(req.password(), "password");
+        requirePort(req.port());
+    }
+
     private static void validate(TestConnectionRequest req) {
         if (req == null) {
             throw new BusinessException(VALIDATION_ERROR, "请求体不能为空");
@@ -56,14 +135,19 @@ public class DataSourceController {
         requireText(req.host(), "host");
         requireText(req.database(), "database");
         requireText(req.username(), "username");
-        if (req.port() == null || req.port() < PORT_MIN || req.port() > PORT_MAX) {
-            throw new BusinessException(VALIDATION_ERROR, "port 须在 " + PORT_MIN + "–" + PORT_MAX + " 之间");
-        }
+        requirePort(req.port());
     }
 
     private static void requireText(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new BusinessException(VALIDATION_ERROR, field + " 不能为空");
+        }
+    }
+
+    private static void requirePort(Integer port) {
+        if (port == null || port < PORT_MIN || port > PORT_MAX) {
+            throw new BusinessException(
+                    VALIDATION_ERROR, "port 须在 " + PORT_MIN + "–" + PORT_MAX + " 之间");
         }
     }
 
@@ -87,4 +171,46 @@ public class DataSourceController {
      * @param message 成功为 {@code "connected"}；失败为脱敏后的真实错误
      */
     public record TestConnectionResponse(boolean ok, String message) {}
+
+    /**
+     * 登记数据源请求。{@code password} 为明文，仅用于服务端加密落库，<b>响应绝不回显</b>（D7）。
+     *
+     * @param name     数据源展示名（租户内唯一）
+     * @param type     方言类型键（如 {@code mysql} / {@code postgresql}），D8
+     * @param host     主机
+     * @param port     端口
+     * @param database 库名
+     * @param username 登录名
+     * @param password 口令明文（加密存 {@code secret_cipher}）
+     */
+    public record CreateDataSourceRequest(
+            String name,
+            String type,
+            String host,
+            Integer port,
+            String database,
+            String username,
+            String password) {}
+
+    /**
+     * 数据源视图（对外）。<b>刻意不含任何口令字段</b>（明文/密文/引用一律不出，D7）。
+     *
+     * @param id        数据源 id
+     * @param name      展示名
+     * @param type      方言类型键
+     * @param host      主机
+     * @param port      端口
+     * @param database  库名
+     * @param username  登录名
+     * @param createdAt 创建时间
+     */
+    public record DataSourceView(
+            String id,
+            String name,
+            String type,
+            String host,
+            int port,
+            String database,
+            String username,
+            Instant createdAt) {}
 }
