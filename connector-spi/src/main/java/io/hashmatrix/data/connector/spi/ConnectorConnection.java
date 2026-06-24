@@ -17,6 +17,17 @@ public interface ConnectorConnection extends AutoCloseable {
     /** 表行读取器（主链路·搬行）。 */
     RecordReader reader(TableRef table);
 
+    /**
+     * 至多 {@code maxRows} 行的读取器（预览/采样）。{@code maxRows <= 0} 表示不限。
+     *
+     * <p>默认委派到 {@link #reader(TableRef)}（不把上限下推到数据源）；实现可覆盖以在数据源侧
+     * 设上限（如 JDBC {@code Statement.setMaxRows}），<b>方言中立</b>、无需写 {@code LIMIT/TOP}。
+     * 无论实现是否下推，调用方仍应自行截断到 {@code maxRows} 兜底。
+     */
+    default RecordReader reader(TableRef table, int maxRows) {
+        return reader(table);
+    }
+
     /** 表行写入器（主链路·搬行）。 */
     RecordWriter writer(TableRef table);
 
