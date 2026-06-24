@@ -45,7 +45,13 @@ final class JdbcMetadataScanner implements MetadataScanner {
         List<TableRef> tables = new ArrayList<>();
         try (ResultSet rs = connection.getMetaData().getTables(catalog, schema, "%", new String[] {"TABLE"})) {
             while (rs.next()) {
-                tables.add(new TableRef(catalog, schema, rs.getString("TABLE_NAME")));
+                // 取结果集里的真实 catalog/schema（而非回显入参），保证元数据保真：
+                // PG 返回真实 schema（如 public），MySQL 的 TABLE_SCHEM 本就为 null。
+                tables.add(
+                        new TableRef(
+                                rs.getString("TABLE_CAT"),
+                                rs.getString("TABLE_SCHEM"),
+                                rs.getString("TABLE_NAME")));
             }
         } catch (SQLException e) {
             throw new ConnectorException("failed to list tables (%s.%s)".formatted(catalog, schema), e);

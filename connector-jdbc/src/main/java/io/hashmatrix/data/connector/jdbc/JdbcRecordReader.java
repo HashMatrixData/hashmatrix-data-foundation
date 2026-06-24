@@ -21,11 +21,22 @@ final class JdbcRecordReader implements RecordReader {
     private final ResultSet resultSet;
 
     JdbcRecordReader(Connection connection, Dialect dialect, TableMeta schema) {
+        this(connection, dialect, schema, 0);
+    }
+
+    /**
+     * @param maxRows 结果集行上限（{@code > 0} 时经 {@link PreparedStatement#setMaxRows} 在驱动侧封顶，
+     *     用于预览/采样）；{@code <= 0} 表示不限。
+     */
+    JdbcRecordReader(Connection connection, Dialect dialect, TableMeta schema, int maxRows) {
         this.schema = schema;
         PreparedStatement stmt = null;
         ResultSet rs = null;
         try {
             stmt = connection.prepareStatement(selectSql(dialect, schema));
+            if (maxRows > 0) {
+                stmt.setMaxRows(maxRows);
+            }
             rs = stmt.executeQuery();
         } catch (SQLException e) {
             // executeQuery 失败时 prepareStatement 已打开，须 best-effort 关闭，避免游标/语句句柄泄漏

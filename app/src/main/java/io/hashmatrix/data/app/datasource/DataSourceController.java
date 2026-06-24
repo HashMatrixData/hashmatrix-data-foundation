@@ -1,12 +1,17 @@
 package io.hashmatrix.data.app.datasource;
 
+import io.hashmatrix.data.app.datasource.DataSourceCatalogService.PreviewResult;
 import io.hashmatrix.data.app.datasource.DataSourceConnectionService.TestResult;
+import io.hashmatrix.data.connector.spi.TableRef;
 import io.hashmatrix.starter.tenant.TenantContextHolder;
 import io.hashmatrix.starter.web.ApiResponse;
 import io.hashmatrix.starter.web.BusinessException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,11 +36,15 @@ public class DataSourceController {
 
     private final DataSourceConnectionService connectionService;
     private final DataSourceService dataSourceService;
+    private final DataSourceCatalogService catalogService;
 
     public DataSourceController(
-            DataSourceConnectionService connectionService, DataSourceService dataSourceService) {
+            DataSourceConnectionService connectionService,
+            DataSourceService dataSourceService,
+            DataSourceCatalogService catalogService) {
         this.connectionService = connectionService;
         this.dataSourceService = dataSourceService;
+        this.catalogService = catalogService;
     }
 
     /**
@@ -90,6 +99,49 @@ public class DataSourceController {
         List<DataSourceView> views =
                 dataSourceService.list(tenantId).stream().map(DataSourceController::toView).toList();
         return ApiResponse.ok(views);
+    }
+
+    /**
+     * 列出某数据源（本租户）下的库表（旁路·取结构）。
+     *
+     * @throws BusinessException 缺租户（400）/ 数据源不存在或非本租户（404）
+     */
+    @GetMapping("/{id}/tables")
+    public ApiResponse<List<TableView>> tables(@PathVariable("id") String id) {
+        String tenantId = currentTenant();
+        List<TableView> tables =
+                catalogService.listTables(tenantId, parseId(id)).stream()
+                        .map(t -> new TableView(t.catalog(), t.schema(), t.name()))
+                        .toList();
+        return ApiResponse.ok(tables);
+    }
+
+    /**
+     * 预览某表前 N 行（N 钳制并驱动侧封顶）。请求表名经元数据白名单校验（防注入）。
+     *
+     * @throws BusinessException 缺租户（400）/ 请求体非法（400）/ 数据源或表不存在（404）
+     */
+    @PostMapping("/{id}/preview")
+    public ApiResponse<PreviewResponse> preview(
+            @PathVariable("id") String id, @RequestBody PreviewRequest request) {
+        String tenantId = currentTenant();
+        if (request == null) {
+            throw new BusinessException(VALIDATION_ERROR, "请求体不能为空");
+        }
+        requireText(request.table(), "table");
+        PreviewResult result =
+                catalogService.preview(
+                        tenantId, parseId(id), request.table().trim(), request.schema(), request.limit());
+        return ApiResponse.ok(
+                new PreviewResponse(result.columns(), result.rows(), result.limit()));
+    }
+
+    private static UUID parseId(String id) {
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(VALIDATION_ERROR, "数据源 id 非法");
+        }
     }
 
     /** 强制取当前租户（D9）：缺 {@code X-Tenant-Id} → 明确 400，而非静默放行或 500。 */
@@ -213,4 +265,31 @@ public class DataSourceController {
             String database,
             String username,
             Instant createdAt) {}
+
+    /**
+     * 库表视图。
+     *
+     * @param catalog 目录/库（可空）
+     * @param schema  模式（可空，如 MySQL）
+     * @param name    表名
+     */
+    public record TableView(String catalog, String schema, String name) {}
+
+    /**
+     * 预览请求。
+     *
+     * @param table  表名（必填，按真实元数据白名单校验）
+     * @param schema 模式（可空，参与白名单匹配）
+     * @param limit  期望行数（可空；钳制到 [1, {@value DataSourceCatalogService#MAX_PREVIEW_LIMIT}]）
+     */
+    public record PreviewRequest(String table, String schema, Integer limit) {}
+
+    /**
+     * 预览响应。
+     *
+     * @param columns 列名（保序）
+     * @param rows    行（列名→值，保序）
+     * @param limit   生效行上限
+     */
+    public record PreviewResponse(List<String> columns, List<Map<String, Object>> rows, int limit) {}
 }

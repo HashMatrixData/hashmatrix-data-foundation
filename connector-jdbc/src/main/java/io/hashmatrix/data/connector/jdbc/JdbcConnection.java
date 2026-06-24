@@ -31,6 +31,12 @@ final class JdbcConnection implements ConnectorConnection {
     }
 
     @Override
+    public RecordReader reader(TableRef table, int maxRows) {
+        // 行上限经 Statement.setMaxRows 在驱动侧下推——方言中立，无需写 LIMIT/TOP/ROWNUM。
+        return new JdbcRecordReader(connection, dialect, metadataScanner().describeTable(table), maxRows);
+    }
+
+    @Override
     public RecordWriter writer(TableRef table) {
         return new JdbcRecordWriter(connection, dialect, metadataScanner().describeTable(table));
     }
